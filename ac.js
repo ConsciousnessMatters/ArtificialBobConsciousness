@@ -699,9 +699,11 @@ function progressWorld() {
 			let activities = {
 				moveForwards: function() {
 					let diffTolerance = 0.00001,
+						lungeTrigger = 0.00065,
 						cd0 = cell.chemodetectors[0],
 						cd1 = cell.chemodetectors[1],
 						movingAwayFromFood = cd0.currentIntensity < cd0.previousIntensity && cd1.currentIntensity < cd1.previousIntensity,
+						onTopOfFood = cd0.currentIntensity > lungeTrigger && cd1.currentIntensity > lungeTrigger,
 						foodClockwise = cd0.currentIntensity + diffTolerance < cd1.currentIntensity,
 						foodCounterClockwise = cd0.currentIntensity > cd1.currentIntensity + diffTolerance;
 
@@ -709,6 +711,9 @@ function progressWorld() {
 						if (Math.random() >= 0.95) {
 							cell.knowledge.activity = 'reverseDirection';
 						}
+					} else if (onTopOfFood) {
+						console.debug('lunging');
+						cell.desiredSpeed = config.cell.speeds.speed3;
 					} else if (foodClockwise) {
 						relativeTurn(2);
 						cell.desiredSpeed = 0;
