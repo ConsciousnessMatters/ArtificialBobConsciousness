@@ -180,19 +180,14 @@ function createCell() {
 			speed: 0,
 			force: 0,
 		},
-		actualVelocity: {
+		velocity: {
 			x: 0,
 			y: 0,
 		},
-		desiredBearing: getNewCellDirection(),
-		actualBearing: 0,
+		desiredOrientationBearing: getNewCellDirection(),
+		orientationBearing: 0,
 		timeOfLastMeal: 0,
 		iGotFood: 0,
-		smell: {
-			currentIntensity: 0,
-			previousIntensity: 0,
-			lastsniff: 0,
-		},
 		chemodetectors: [
 			{
 				currentIntensity: 0,
@@ -212,6 +207,8 @@ function createCell() {
 			stopInitiatedAt: null,
 			sniff: {},
 			lastTurn: null,
+			activity: 'moveForwards',
+			reverseTo: null,
 		},
 	});
 
@@ -265,7 +262,7 @@ function renderWorld() {
 		mainCC.fill();
 
 		cell.chemodetectors.forEach(function(chemodetector) {
-			chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (chemodetector.bearing + cell.actualBearing + 360) % 360);
+			chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (chemodetector.bearing + cell.orientationBearing + 360) % 360);
 			mainCC.beginPath();
 			mainCC.fillStyle = config.cell.chemodetectors.colour;
 			mainCC.arc(chemodetectorLocation.x, chemodetectorLocation.y, config.cell.chemodetectors.radius, 0, Math.PI * 2, true);
@@ -280,7 +277,6 @@ function progressWorld() {
 		cell = collisionDetection(cell);
 		cell = calculateSmellAtCell(cell);
 		cell = cellFunctions(cell);
-		cell = worldFunctions(cell);
 
 		return cell;
 	});
@@ -295,7 +291,7 @@ function progressWorld() {
 		acceleration = getAcceleration(motiveForce, config.cell.mass);
 
 		if (config.cell.locomotion) {
-			applyVelocityChange(acceleration, cell.desiredBearing);
+			applyVelocityChange(acceleration, cell.desiredOrientationBearing);
 		}
 		applySubstrateVelocityResistance();
 		applyVelocitiesToLocations();
@@ -308,35 +304,35 @@ function progressWorld() {
 
 			// Bug present here for spinning and locking.
 
-			cell.actualBearing = cell.desiredBearing;
+			cell.orientationBearing = cell.desiredOrientationBearing;
 
-			if (cell.actualBearing === cell.desiredBearing) {
+			if (cell.orientationBearing === cell.desiredOrientationBearing) {
 				return;
 			}
 
-			if (cell.desiredBearing < cell.actualBearing) {
-				clockwiseSolution = cell.desiredBearing + 360 - cell.actualBearing;
+			if (cell.desiredOrientationBearing < cell.orientationBearing) {
+				clockwiseSolution = cell.desiredOrientationBearing + 360 - cell.orientationBearing;
 			} else {
-				clockwiseSolution = cell.desiredBearing - cell.actualBearing;
+				clockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing;
 			}
 
-			if (cell.desiredBearing > cell.actualBearing) {
-				counterclockwiseSolution = cell.desiredBearing - cell.actualBearing + 360;
+			if (cell.desiredOrientationBearing > cell.orientationBearing) {
+				counterclockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing + 360;
 			} else {
-				counterclockwiseSolution = cell.desiredBearing - cell.actualBearing;
+				counterclockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing;
 			}
 
 			useClockwiseSolution = clockwiseSolution <= Math.abs(counterclockwiseSolution);
 
 			if (useClockwiseSolution) {
-				cell.actualBearing = (cell.actualBearing + 5) % 360;
+				cell.orientationBearing = (cell.orientationBearing + 5) % 360;
 			} else {
-				cell.actualBearing = (cell.actualBearing - 5 + 360) % 360;
+				cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
 			}
 		}
 
 		function getActualSpeed() {
-			return getSpeedFromXY(cell.actualVelocity.x, cell.actualVelocity.y);
+			return getSpeedFromXY(cell.velocity.x, cell.velocity.y);
 		}
 
 		function getSpeedFromXY(x, y) {
@@ -358,13 +354,13 @@ function progressWorld() {
 		function applyVelocityChange(accelerationForFrame, bearing) {
 			let vectorComponents = getPointRotatedFromRadius(0, 0, accelerationForFrame, bearing);
 
-			cell.actualVelocity.x = cell.actualVelocity.x + vectorComponents.x;
-			cell.actualVelocity.y = cell.actualVelocity.y + vectorComponents.y;
+			cell.velocity.x = cell.velocity.x + vectorComponents.x;
+			cell.velocity.y = cell.velocity.y + vectorComponents.y;
 		}
 
 		function applySubstrateVelocityResistance() {
 			let speed = getActualSpeed(),
-				bearing = getBearingFromXY(cell.actualVelocity.x, cell.actualVelocity.y),
+				bearing = getBearingFromXY(cell.velocity.x, cell.velocity.y),
 				counterBearing = (bearing + 180) % 360,
 				resistanceForce;
 
@@ -378,34 +374,41 @@ function progressWorld() {
 		}
 
 		function applyVelocitiesToLocations() {
-			cell.location.x = cell.location.x + cell.actualVelocity.x;
-			cell.location.y = cell.location.y + cell.actualVelocity.y;
+			cell.location.x = cell.location.x + cell.velocity.x;
+			cell.location.y = cell.location.y + cell.velocity.y;
 		}
 
 		function preventOverflow() {
 			if (cell.location.x > mainCC.canvas.width - config.cell.radius) {
 				cell.location.x = mainCC.canvas.width - config.cell.radius;
-				if (cell.actualVelocity.x > 0) {
-					cell.actualVelocity.x = 0;
+				if (cell.velocity.x > 0) {
+					cell.velocity.x = 0;
 				}
 			} else if (cell.location.x < config.cell.radius) {
 				cell.location.x = config.cell.radius;
-				if (cell.actualVelocity.x < 0) {
-					cell.actualVelocity.x = 0;
+				if (cell.velocity.x < 0) {
+					cell.velocity.x = 0;
 				}
 			}
 
 			if (cell.location.y > mainCC.canvas.height - config.cell.radius) {
 				cell.location.y = mainCC.canvas.height - config.cell.radius;
-				if (cell.actualVelocity.y > 0) {
-					cell.actualVelocity.y = 0;
+				if (cell.velocity.y > 0) {
+					cell.velocity.y = 0;
 				}
 			} else if (cell.location.y < config.cell.radius) {
 				cell.location.y = config.cell.radius;
-				if (cell.actualVelocity.y < 0) {
-					cell.actualVelocity.y = 0;
+				if (cell.velocity.y < 0) {
+					cell.velocity.y = 0;
 				}
 			}
+		}
+
+		function calculateVelocityBearing() {
+				velocity = {
+					bearing: getBearingFromXY(cell.velocity.x, cell.velocity.y),
+					speed: getHypotenuseFromXY(cell.velocity.x, cell.velocity.y),
+				};
 		}
 
 		return cell;
@@ -458,7 +461,7 @@ function progressWorld() {
 		cell.chemodetectors = cell.chemodetectors.map(function(chemodetector) {
 			let foodDistances = [],
 				foodInverseSquares = [],
-				chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (cell.actualBearing + chemodetector.bearing + 360) % 360);
+				chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (cell.orientationBearing + chemodetector.bearing + 360) % 360);
 
 			state.food.forEach(function(food) {
 				let distance = distanceFromPointToPoint(food.location.x, food.location.y, chemodetectorLocation.x, chemodetectorLocation.y);
@@ -467,7 +470,6 @@ function progressWorld() {
 			});
 
 			chemodetector.previousIntensity = chemodetector.currentIntensity;
-			cell.smell.previousIntensity = cell.smell.currentIntensity;
 
 			// console.debug(`Current Smell Intensity: ${cell.smell.currentIntensity}`);
 
@@ -477,7 +479,6 @@ function progressWorld() {
 
 			foodInverseSquares = foodDistances.map(distance => 1 / Math.pow(distance, 2));
 			chemodetector.currentIntensity = foodInverseSquares.reduce((acculmulator, inverseSquare) => acculmulator + inverseSquare, 0);
-			cell.smell.currentIntensity = chemodetector.currentIntensity;
 
 			return chemodetector;
 		});
@@ -503,18 +504,18 @@ function progressWorld() {
 		}
 
 		function unconsciousMode() {
-			if_I_Ate_Remember_Eating();
-			maybe_Change_Direction_Randomly();
-			go_Slow_If_Full__Normal_Speed_When_Sated__And_Fast_When_Hungry();
+			rememberEatingIfIDid();
+			maybeChangeDirectionRandomly();
+			setSpeedByTimeSinceFood();
 
-			function if_I_Ate_Remember_Eating() {
+			function rememberEatingIfIDid() {
 				if (cell.iGotFood > 0) {
 					cell.iGotFood = 0;
 					cell.timeOfLastMeal = worldTime;
 				}
 			}
 
-			function go_Slow_If_Full__Normal_Speed_When_Sated__And_Fast_When_Hungry() {
+			function setSpeedByTimeSinceFood() {
 				if (cell.knowledge.whenILastAte > config.cell.speeds.speed1.timeThreshhold) {
 					cell.desiredSpeed = config.cell.speeds.speed1;
 				}
@@ -526,15 +527,15 @@ function progressWorld() {
 				}
 			}
 
-			function maybe_Change_Direction_Randomly() {
+			function maybeChangeDirectionRandomly() {
 				if (Math.random() > 0.999) {
-					cell.desiredBearing = Math.random() * 360;
+					cell.desiredOrientationBearing = Math.random() * 360;
 					// console.debug('Unconscious random movement occurred.');
 				}
 			}
 		}
 
-		function consciousMode() {
+		function consciousMode1() {
 			let freewill = config.cell.freewill;
 			let intention = cell.knowledge.intention;
 			let sniffing = worldTime < cell.lastsniff + config.cell.speeds.speedSniff.timeThreshhold;
@@ -587,15 +588,15 @@ function progressWorld() {
 				}
 
 				velocity = {
-					bearing: getBearingFromXY(cell.actualVelocity.x, cell.actualVelocity.y),
-					speed: getHypotenuseFromXY(cell.actualVelocity.x, cell.actualVelocity.y),
+					bearing: getBearingFromXY(cell.velocity.x, cell.velocity.y),
+					speed: getHypotenuseFromXY(cell.velocity.x, cell.velocity.y),
 				};
 
 				reverseDirection = (velocity.bearing + 180) % 360;
 
 				console.debug(velocity, cell);
 
-				if (cell.actualBearing <= reverseDirection + tolerance && cell.actualBearing >= reverseDirection - tolerance) {
+				if (cell.orientationBearing <= reverseDirection + tolerance && cell.orientationBearing >= reverseDirection - tolerance) {
 					if (velocity.speed > 3) {
 						cell.speed = config.cell.speeds.speed3;
 					} else if (velocity.speed > 0.5) {
@@ -622,7 +623,7 @@ function progressWorld() {
 						cell.knowledge.intention = 'sniff-step2';
 						break;
 					case 2:
-						if (cell.desiredBearing == cell.actualBearing) {
+						if (cell.desiredOrientationBearing == cell.orientationBearing) {
 							let otherWay;
 
 							if (cell.knowledge.sniff.startingLevel < cell.smell.currentIntensity) {
@@ -677,12 +678,12 @@ function progressWorld() {
 
 			function relativeTurn(amount) {
 				cell.knowledge.lastTurn = (amount + 360) % 360;
-				cell.desiredBearing = (cell.desiredBearing + amount) % 360;
+				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
 			}
 
 			function absoluteTurn(amount) {
-				cell.knowledge.lastTurn = (cell.desiredBearing - amount + 360) % 360;
-				cell.desiredBearing = amount % 360;
+				cell.knowledge.lastTurn = (cell.desiredOrientationBearing - amount + 360) % 360;
+				cell.desiredOrientationBearing = amount % 360;
 			}
 
 			function arbitraryDecision(functionA, functionB) {
@@ -694,14 +695,81 @@ function progressWorld() {
 			}
 		}
 
+		function consciousMode() {
+			let activities = {
+				moveForwards: function() {
+					let diffTolerance = 0.00001,
+						cd0 = cell.chemodetectors[0],
+						cd1 = cell.chemodetectors[1],
+						movingAwayFromFood = cd0.currentIntensity < cd0.previousIntensity && cd1.currentIntensity < cd1.previousIntensity,
+						foodClockwise = cd0.currentIntensity + diffTolerance < cd1.currentIntensity,
+						foodCounterClockwise = cd0.currentIntensity > cd1.currentIntensity + diffTolerance;
+
+					if (movingAwayFromFood) {
+						if (Math.random() >= 0.95) {
+							cell.knowledge.activity = 'reverseDirection';
+						}
+					} else if (foodClockwise) {
+						relativeTurn(2);
+						cell.desiredSpeed = 0;
+					} else if (foodCounterClockwise) {
+						relativeTurn(-2);
+						cell.desiredSpeed = 0;
+					} else {
+						cell.desiredSpeed = config.cell.speeds.speed2;
+					}
+				},
+				reverseDirection: function() {
+					let bearingTolerance = 5,
+						velocity = {
+							bearing: getBearingFromXY(cell.velocity.x, cell.velocity.y),
+							speed: getHypotenuseFromXY(cell.velocity.x, cell.velocity.y),
+						},
+						notPresentlyTurning = cell.knowledge.reverseTo === null;
+
+					if (notPresentlyTurning) {
+						cell.knowledge.reverseTo = (velocity.bearing + 180) % 360;
+						cell.desiredOrientationBearing = cell.knowledge.reverseTo;
+						cell.desiredSpeed = 0;
+					} else {
+						if (bearingWithinTolerance(cell.orientationBearing, cell.knowledge.reverseTo, bearingTolerance)) {
+							cell.desiredSpeed = config.cell.speeds.speed3;
+						} else {
+							cell.desiredSpeed = 0;
+						}
+
+						if (bearingWithinTolerance(velocity.bearing, cell.knowledge.reverseTo, bearingTolerance)) {
+							cell.knowledge.reverseTo = null;
+							cell.knowledge.activity = 'moveForwards';
+						}
+					}
+				},
+			};
+
+			function relativeTurn(amount) {
+				cell.knowledge.lastTurn = (amount + 360) % 360;
+				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
+			}
+
+			activities[cell.knowledge.activity]();
+		}
+
+		function bearingWithinTolerance(a, b, tolerance) {
+			return withinTolerance((a + 360) % 360, (b + 360) % 360, tolerance) ||
+				withinTolerance((a + 360) % 360 + 360, (b + 360) % 360, tolerance) ||
+				withinTolerance((a + 360) % 360, (b + 360) % 360 + 360, tolerance);
+		}
+
+		function withinTolerance(a, b, tolerance) {
+			let difference = a - b;
+			difference = Math.abs(difference);
+			return difference <= tolerance;
+		}
+
 		return cell;
 	}
 
-	function worldFunctions(cell) {
-		worldTime++;
-
-		return cell;
-	}
+	worldTime++;
 }
 
 function animateWorld() {
