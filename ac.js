@@ -455,26 +455,32 @@ function progressWorld() {
 	}
 
 	function calculateSmellAtCell(cell) {
-		let foodDistances = [],
-			foodInverseSquares,
-			chemodetector = getPointRotatedFromRadius(cell.location.x, cell.location.y, config.cell.radius, cell.actualBearing);
+		cell.chemodetectors = cell.chemodetectors.map(function(chemodetector) {
+			let foodDistances = [],
+				foodInverseSquares = [],
+				chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (cell.actualBearing + chemodetector.bearing + 360) % 360);
 
-		state.food.forEach(function(food) {
-			let distance = distanceFromPointToPoint(food.location.x, food.location.y, chemodetector.x, chemodetector.y);
+			state.food.forEach(function(food) {
+				let distance = distanceFromPointToPoint(food.location.x, food.location.y, chemodetectorLocation.x, chemodetectorLocation.y);
 
-			foodDistances.push(distance);
+				foodDistances.push(distance);
+			});
+
+			chemodetector.previousIntensity = chemodetector.currentIntensity;
+			cell.smell.previousIntensity = cell.smell.currentIntensity;
+
+			// console.debug(`Current Smell Intensity: ${cell.smell.currentIntensity}`);
+
+			// // I don't know why the following in playing up:
+			// let inverseSqaureReducer = (acculmulator, distance) => acculmulator + Math.sqrt(1 / distance);
+			// cell.smell.currentIntensity = foodDistances.reduce(inverseSqaureReducer);
+
+			foodInverseSquares = foodDistances.map(distance => 1 / Math.pow(distance, 2));
+			chemodetector.currentIntensity = foodInverseSquares.reduce((acculmulator, inverseSquare) => acculmulator + inverseSquare, 0);
+			cell.smell.currentIntensity = chemodetector.currentIntensity;
+
+			return chemodetector;
 		});
-
-		cell.smell.previousIntensity = cell.smell.currentIntensity;
-
-		// console.debug(`Current Smell Intensity: ${cell.smell.currentIntensity}`);
-
-		// // I don't know why the following in playing up:
-		// let inverseSqaureReducer = (acculmulator, distance) => acculmulator + Math.sqrt(1 / distance);
-		// cell.smell.currentIntensity = foodDistances.reduce(inverseSqaureReducer);
-
-		foodInverseSquares = foodDistances.map(distance => 1 / Math.pow(distance, 2));
-		cell.smell.currentIntensity = foodInverseSquares.reduce((acculmulator, inverseSquare) => acculmulator + inverseSquare, 0);
 
 		function distanceFromPointToPoint(x1, y1, x2, y2) {
 			let diffX,
