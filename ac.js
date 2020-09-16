@@ -261,7 +261,6 @@ function renderWorld() {
 function progressWorld() {
 	state.cells = state.cells.map(function(cell) {
 		cell = moveCell(cell);
-		cell = preventOverflow(cell);
 		cell = collisionDetection(cell);
 		cell = calculateSmellAtCell(cell);
 		cell = cellFunctions(cell);
@@ -284,6 +283,7 @@ function progressWorld() {
 		}
 		applySubstrateVelocityResistance();
 		applyVelocitiesToLocations();
+		preventOverflow();
 
 		function turnCell() {
 			let useClockwiseSolution,
@@ -366,39 +366,36 @@ function progressWorld() {
 			cell.location.y = cell.location.y + cell.actualVelocity.y;
 		}
 
-		let newActualSpeed = getActualSpeed(),
-			actualSpeedChange = newActualSpeed - cell.actualSpeed;
+		function preventOverflow() {
+			if (cell.location.x > mainCC.canvas.width - config.cell.radius) {
+				cell.location.x = mainCC.canvas.width - config.cell.radius;
+				if (cell.actualVelocity.x > 0) {
+					cell.actualVelocity.x = 0;
+				}
+			} else if (cell.location.x < config.cell.radius) {
+				cell.location.x = config.cell.radius;
+				if (cell.actualVelocity.x < 0) {
+					cell.actualVelocity.x = 0;
+				}
+			}
+
+			if (cell.location.y > mainCC.canvas.height - config.cell.radius) {
+				cell.location.y = mainCC.canvas.height - config.cell.radius;
+				if (cell.actualVelocity.y > 0) {
+					cell.actualVelocity.y = 0;
+				}
+			} else if (cell.location.y < config.cell.radius) {
+				cell.location.y = config.cell.radius;
+				if (cell.actualVelocity.y < 0) {
+					cell.actualVelocity.y = 0;
+				}
+			}
+		}		
 
 		return cell;
 	}
 
-	function preventOverflow(cell) {
-		if (cell.location.x > mainCC.canvas.width - config.cell.radius) {
-			cell.location.x = mainCC.canvas.width - config.cell.radius;
-			if (cell.actualVelocity.x > 0) {
-				cell.actualVelocity.x = 0;
-			}
-		} else if (cell.location.x < config.cell.radius) {
-			cell.location.x = config.cell.radius;
-			if (cell.actualVelocity.x < 0) {
-				cell.actualVelocity.x = 0;
-			}
-		}
 
-		if (cell.location.y > mainCC.canvas.height - config.cell.radius) {
-			cell.location.y = mainCC.canvas.height - config.cell.radius;
-			if (cell.actualVelocity.y > 0) {
-				cell.actualVelocity.y = 0;
-			}
-		} else if (cell.location.y < config.cell.radius) {
-			cell.location.y = config.cell.radius;
-			if (cell.actualVelocity.y < 0) {
-				cell.actualVelocity.y = 0;
-			}
-		}
-
-		return cell;
-	}
 
 	function collisionDetection(cell) {
 		let foodOfInterest, 
