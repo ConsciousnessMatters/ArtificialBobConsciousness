@@ -193,6 +193,20 @@ function createCell() {
 			previousIntensity: 0,
 			lastsniff: 0,
 		},
+		chemodetectors: [
+			{
+				currentIntensity: 0,
+				previousIntensity: 0,
+				bearing: -45,
+				offset: config.cell.radius,
+			},
+			{
+				currentIntensity: 0,
+				previousIntensity: 0,
+				bearing: 45,
+				offset: config.cell.radius,
+			},
+		],
 		knowledge: {
 			whenILastAte: null,
 			stopInitiatedAt: null,
@@ -243,18 +257,20 @@ function renderWorld() {
 	mainCC.drawImage(foodCC.canvas, 0, 0);
 
 	state.cells.forEach(function(cell) {
-		let chemodetector;
+		let chemodetectorLocation;
 
 		mainCC.beginPath();
 		mainCC.fillStyle = config.cell.colour;
 		mainCC.arc(cell.location.x, cell.location.y, config.cell.radius, 0, Math.PI * 2, true);
 		mainCC.fill();
 
-		chemodetector = getPointRotatedFromRadius(cell.location.x, cell.location.y, config.cell.radius, 0 + cell.actualBearing);
-		mainCC.beginPath();
-		mainCC.fillStyle = config.cell.chemodetectors.colour;
-		mainCC.arc(chemodetector.x, chemodetector.y, config.cell.chemodetectors.radius, 0, Math.PI * 2, true);
-		mainCC.fill();
+		cell.chemodetectors.forEach(function(chemodetector) {
+			chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (chemodetector.bearing + cell.actualBearing + 360) % 360);
+			mainCC.beginPath();
+			mainCC.fillStyle = config.cell.chemodetectors.colour;
+			mainCC.arc(chemodetectorLocation.x, chemodetectorLocation.y, config.cell.chemodetectors.radius, 0, Math.PI * 2, true);
+			mainCC.fill();
+		});
 	});
 }
 
@@ -390,12 +406,10 @@ function progressWorld() {
 					cell.actualVelocity.y = 0;
 				}
 			}
-		}		
+		}
 
 		return cell;
 	}
-
-
 
 	function collisionDetection(cell) {
 		let foodOfInterest, 
