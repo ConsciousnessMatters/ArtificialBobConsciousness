@@ -699,7 +699,7 @@ function progressWorld() {
 			let activities = {
 				moveForwards: function() {
 					let diffTolerance = 0.00001,
-						lungeTrigger = 0.00065,
+						lungeTrigger = 0.00063,
 						cd0 = cell.chemodetectors[0],
 						cd1 = cell.chemodetectors[1],
 						movingAwayFromFood = cd0.currentIntensity < cd0.previousIntensity && cd1.currentIntensity < cd1.previousIntensity,
