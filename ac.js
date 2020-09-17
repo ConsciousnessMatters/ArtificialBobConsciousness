@@ -304,7 +304,7 @@ function progressWorld() {
 
 			// Bug present here for spinning and locking.
 
-			cell.orientationBearing = cell.desiredOrientationBearing;
+			// cell.orientationBearing = cell.desiredOrientationBearing;
 
 			if (cell.orientationBearing === cell.desiredOrientationBearing) {
 				return;
@@ -325,9 +325,22 @@ function progressWorld() {
 			useClockwiseSolution = clockwiseSolution <= Math.abs(counterclockwiseSolution);
 
 			if (useClockwiseSolution) {
-				cell.orientationBearing = (cell.orientationBearing + 5) % 360;
+				if (clockwiseSolution > 5 ) {
+					cell.orientationBearing = (cell.orientationBearing + 5) % 360;
+				} else {
+					cell.orientationBearing = (cell.orientationBearing + clockwiseSolution) % 360;
+				}
 			} else {
-				cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
+				if (counterclockwiseSolution > 5) {
+					cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
+				} else {
+					cell.orientationBearing = (cell.orientationBearing + counterclockwiseSolution + 360) % 360;
+				}
+			}
+
+			function relativeTurn(amount) {
+				cell.knowledge.lastTurn = (amount + 360) % 360;
+				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
 			}
 		}
 
@@ -712,7 +725,6 @@ function progressWorld() {
 							cell.knowledge.activity = 'reverseDirection';
 						}
 					} else if (onTopOfFood) {
-						console.debug('lunging');
 						cell.desiredSpeed = config.cell.speeds.speed3;
 					} else if (foodClockwise) {
 						relativeTurn(2);
@@ -726,11 +738,16 @@ function progressWorld() {
 				},
 				reverseDirection: function() {
 					let bearingTolerance = 5,
+						cdMean = {
+							previousIntensity: cell.chemodetectors[0].previousIntensity + cell.chemodetectors[1].previousIntensity / 2,
+							currentIntensity: cell.chemodetectors[0].currentIntensity + cell.chemodetectors[1].currentIntensity / 2,
+						},
 						velocity = {
 							bearing: getBearingFromXY(cell.velocity.x, cell.velocity.y),
 							speed: getHypotenuseFromXY(cell.velocity.x, cell.velocity.y),
 						},
-						notPresentlyTurning = cell.knowledge.reverseTo === null;
+						notPresentlyTurning = cell.knowledge.reverseTo === null,
+						turnedPastSmell = cdMean.currentIntensity < cdMean.previousIntensity;
 
 					if (notPresentlyTurning) {
 						cell.knowledge.reverseTo = (velocity.bearing + 180) % 360;
@@ -741,6 +758,10 @@ function progressWorld() {
 							cell.desiredSpeed = config.cell.speeds.speed3;
 						} else {
 							cell.desiredSpeed = 0;
+							if (turnedPastSmell) {
+								cell.knowledge.reverseTo = null;
+								cell.knowledge.activity = 'moveForwards';
+							}
 						}
 
 						if (bearingWithinTolerance(velocity.bearing, cell.knowledge.reverseTo, bearingTolerance)) {
