@@ -331,7 +331,7 @@ function progressWorld() {
 					cell.orientationBearing = (cell.orientationBearing + clockwiseSolution) % 360;
 				}
 			} else {
-				if (counterclockwiseSolution > 5) {
+				if (counterclockwiseSolution < - 5) {
 					cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
 				} else {
 					cell.orientationBearing = (cell.orientationBearing + counterclockwiseSolution + 360) % 360;
