@@ -58,11 +58,15 @@ function setup() {
 		cell: {
 			locomotion: true,
 			smell: true,
-			freewill: true, // Program behaviour changes if conscious output (self determination) is switched to false
+			freewill: false, // Program behaviour changes if conscious output (self determination) is switched to false
 			colour: 'rgba(204, 0, 204, 0.75)',
 			radius: 50,
 			mass: 5,
 			speeds: {
+				speed0: {
+					speed: 0,
+					force: 0,
+				},
 				speed1: {
 					timeThreshhold: 0,
 					speed: 0.25,
@@ -186,6 +190,7 @@ function createCell() {
 		},
 		desiredOrientationBearing: getNewCellDirection(),
 		orientationBearing: 0,
+		angularMomentum: 0,
 		timeOfLastMeal: 0,
 		iGotFood: 0,
 		chemodetectors: [
@@ -300,41 +305,107 @@ function progressWorld() {
 		function turnCell() {
 			let useClockwiseSolution,
 				clockwiseSolution,
-				counterclockwiseSolution;
-
-			// Bug present here for spinning and locking.
-
-			// cell.orientationBearing = cell.desiredOrientationBearing;
+				counterclockwiseSolution,
+				solution,
+				clockwise = true,
+				counterclockwise = false,
+				maxAngularMomentum = 5;
 
 			if (cell.orientationBearing === cell.desiredOrientationBearing) {
 				return;
 			}
 
-			if (cell.desiredOrientationBearing < cell.orientationBearing) {
-				clockwiseSolution = cell.desiredOrientationBearing + 360 - cell.orientationBearing;
-			} else {
-				clockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing;
-			}
-
-			if (cell.desiredOrientationBearing > cell.orientationBearing) {
-				counterclockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing + 360;
-			} else {
-				counterclockwiseSolution = cell.desiredOrientationBearing - cell.orientationBearing;
-			}
-
+			clockwiseSolution = getTurningSolution(clockwise);
+			counterclockwiseSolution = getTurningSolution(counterclockwise);
 			useClockwiseSolution = clockwiseSolution <= Math.abs(counterclockwiseSolution);
 
 			if (useClockwiseSolution) {
-				if (clockwiseSolution > 5 ) {
-					cell.orientationBearing = (cell.orientationBearing + 5) % 360;
-				} else {
-					cell.orientationBearing = (cell.orientationBearing + clockwiseSolution) % 360;
-				}
+				turnProcessing(clockwiseSolution);
 			} else {
-				if (counterclockwiseSolution < - 5) {
-					cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
+				turnProcessing(counterclockwiseSolution);
+			}
+
+			applyAngularMomentum();
+
+			// if (useClockwiseSolution) {
+			// 	if (clockwiseSolution > 5) {
+			// 		cell.orientationBearing = (cell.orientationBearing + 5) % 360;
+			// 	} else {
+			// 		cell.orientationBearing = (cell.orientationBearing + clockwiseSolution) % 360;
+			// 	}
+			// } else {
+			// 	if (counterclockwiseSolution < - 5) {
+			// 		cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
+			// 	} else {
+			// 		cell.orientationBearing = (cell.orientationBearing + counterclockwiseSolution + 360) % 360;
+			// 	}
+			// }
+
+			function turnProcessing(turnSolution) {
+				// let negativeProcessing = Math.abs(turnSolution) !== turnSolution,
+				// 	turnSolution = Math.abs(turnSolution);
+
+				let clockwise = Math.abs(turnSolution) === turnSolution;
+
+				if (clockwise) {
+					if (startAngularDeceleration(turnSolution)) {
+						cell.angularMomentum = cell.angularMomentum - 0.5;
+					} else if (cell.angularMomentum < maxAngularMomentum) {
+						cell.angularMomentum = cell.angularMomentum + 0.5;
+					}
 				} else {
-					cell.orientationBearing = (cell.orientationBearing + counterclockwiseSolution + 360) % 360;
+					if (startAngularDeceleration(turnSolution)) {
+						cell.angularMomentum = cell.angularMomentum + 0.5;
+					} else if (Math.abs(cell.angularMomentum) < maxAngularMomentum) {
+						cell.angularMomentum = cell.angularMomentum - 0.5;
+					}
+				}
+			}
+
+			function startAngularDeceleration(turnRemaining) {
+				let angularMomentum = Math.abs(cell.angularMomentum),
+					angleTravelled = 0;
+
+				for (let i = 0; angularMomentum > 0; i++) {
+					angularMomentum = angularMomentum - 0.5;
+					angleTravelled = angleTravelled + angularMomentum;
+				}
+
+				return Math.abs(turnRemaining) <= angleTravelled;
+			}
+
+			function applyAngularMomentum() {
+				if (bearingWithinTolerance(cell.desiredOrientationBearing, cell.orientationBearing, 1)) {
+					cell.orientationBearing = cell.desiredOrientationBearing;
+				}
+				cell.orientationBearing = (cell.orientationBearing + cell.angularMomentum + 360) % 360;
+			}
+
+			function bearingWithinTolerance(a, b, tolerance) {
+				return withinTolerance((a + 360) % 360, (b + 360) % 360, tolerance) ||
+					withinTolerance((a + 360) % 360 + 360, (b + 360) % 360, tolerance) ||
+					withinTolerance((a + 360) % 360, (b + 360) % 360 + 360, tolerance);
+			}
+
+			function withinTolerance(a, b, tolerance) {
+				let difference = a - b;
+				difference = Math.abs(difference);
+				return difference <= tolerance;
+			}
+
+			function getTurningSolution(clockwise = true) {
+				if (clockwise) {
+					if (cell.desiredOrientationBearing < cell.orientationBearing) {
+						return (cell.desiredOrientationBearing + 360) - cell.orientationBearing;
+					} else {
+						return cell.desiredOrientationBearing - cell.orientationBearing;
+					}
+				} else {
+					if (cell.desiredOrientationBearing > cell.orientationBearing) {
+						return cell.desiredOrientationBearing - (cell.orientationBearing + 360);
+					} else {
+						return cell.desiredOrientationBearing - cell.orientationBearing;
+					}
 				}
 			}
 
@@ -558,7 +629,7 @@ function progressWorld() {
 						movingAwayFromFood = cd0.currentIntensity < cd0.previousIntensity && cd1.currentIntensity < cd1.previousIntensity,
 						onTopOfFood = cd0.currentIntensity > lungeTrigger && cd1.currentIntensity > lungeTrigger,
 						foodClockwise = cd0.currentIntensity + diffTolerance < cd1.currentIntensity,
-						foodCounterClockwise = cd0.currentIntensity > cd1.currentIntensity + diffTolerance;
+						foodcounterclockwise = cd0.currentIntensity > cd1.currentIntensity + diffTolerance;
 
 					if (movingAwayFromFood) {
 						if (Math.random() >= 0.95) {
@@ -569,7 +640,7 @@ function progressWorld() {
 					} else if (foodClockwise) {
 						relativeTurn(2);
 						cell.desiredSpeed = 0;
-					} else if (foodCounterClockwise) {
+					} else if (foodcounterclockwise) {
 						relativeTurn(-2);
 						cell.desiredSpeed = 0;
 					} else {
@@ -617,7 +688,9 @@ function progressWorld() {
 				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
 			}
 
-			activities[cell.knowledge.activity]();
+			if (config.cell.freewill) {
+				activities[cell.knowledge.activity]();
+			}
 		}
 
 		function bearingWithinTolerance(a, b, tolerance) {
