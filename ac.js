@@ -88,7 +88,7 @@ function setup() {
 					force: 1,
 				}
 			},
-			forwardRegardlessOfSmellThreshold: 15,
+			forwardChargeThreshhold: 15,
 			chemodetectors: {
 				colour: '#008',
 				radius: 5,
@@ -617,7 +617,6 @@ function progressWorld() {
 			function maybeChangeDirectionRandomly() {
 				if (Math.random() > 0.999) {
 					cell.desiredOrientationBearing = Math.random() * 360;
-					// console.debug('Unconscious random movement occurred.');
 				}
 			}
 		}
@@ -634,7 +633,7 @@ function progressWorld() {
 						foodClockwise = cd0.currentIntensity + diffTolerance < cd1.currentIntensity,
 						foodcounterclockwise = cd0.currentIntensity > cd1.currentIntensity + diffTolerance;
 
-					if (movingAwayFromFood) {
+					if (movingAwayFromFood && cell.knowledge.inhibitReverseTill < worldTime) {
 						if (Math.random() >= 0.95) {
 							cell.knowledge.activity = 'reverseDirection';
 						}
@@ -674,6 +673,7 @@ function progressWorld() {
 							cell.desiredSpeed = 0;
 							if (turnedPastSmell) {
 								cell.knowledge.reverseTo = null;
+								cell.knowledge.inhibitReverseTill = worldTime + config.cell.forwardChargeThreshold;
 								cell.knowledge.activity = 'moveForwards';
 							}
 						}
