@@ -58,7 +58,7 @@ function setup() {
 		cell: {
 			locomotion: true,
 			smell: true,
-			freewill: false, // Program behaviour changes if conscious output (self determination) is switched to false
+			freewill: true, // Program behaviour changes if conscious output (self determination) is switched to false
 			colour: 'rgba(204, 0, 204, 0.75)',
 			radius: 50,
 			mass: 5,
@@ -309,7 +309,8 @@ function progressWorld() {
 				solution,
 				clockwise = true,
 				counterclockwise = false,
-				maxAngularMomentum = 5;
+				maxAngularMomentum = 5,
+				angularMomentumStepSize = 0.5;
 
 			if (cell.orientationBearing === cell.desiredOrientationBearing) {
 				return;
@@ -327,51 +328,53 @@ function progressWorld() {
 
 			applyAngularMomentum();
 
-			// if (useClockwiseSolution) {
-			// 	if (clockwiseSolution > 5) {
-			// 		cell.orientationBearing = (cell.orientationBearing + 5) % 360;
-			// 	} else {
-			// 		cell.orientationBearing = (cell.orientationBearing + clockwiseSolution) % 360;
-			// 	}
-			// } else {
-			// 	if (counterclockwiseSolution < - 5) {
-			// 		cell.orientationBearing = (cell.orientationBearing - 5 + 360) % 360;
-			// 	} else {
-			// 		cell.orientationBearing = (cell.orientationBearing + counterclockwiseSolution + 360) % 360;
-			// 	}
-			// }
-
 			function turnProcessing(turnSolution) {
-				// let negativeProcessing = Math.abs(turnSolution) !== turnSolution,
-				// 	turnSolution = Math.abs(turnSolution);
-
 				let clockwise = Math.abs(turnSolution) === turnSolution;
 
 				if (clockwise) {
-					if (startAngularDeceleration(turnSolution)) {
-						cell.angularMomentum = cell.angularMomentum - 0.5;
+					if (queryAngularDecelerationNeed(turnSolution + angularMomentumStepSize)) {
+						decelerateAngularVelocity();
 					} else if (cell.angularMomentum < maxAngularMomentum) {
-						cell.angularMomentum = cell.angularMomentum + 0.5;
+						accelerateAngularVelocity(clockwise);
 					}
 				} else {
-					if (startAngularDeceleration(turnSolution)) {
-						cell.angularMomentum = cell.angularMomentum + 0.5;
+					if (queryAngularDecelerationNeed(turnSolution + angularMomentumStepSize)) {
+						decelerateAngularVelocity();
 					} else if (Math.abs(cell.angularMomentum) < maxAngularMomentum) {
-						cell.angularMomentum = cell.angularMomentum - 0.5;
+						accelerateAngularVelocity(clockwise);
 					}
 				}
 			}
 
-			function startAngularDeceleration(turnRemaining) {
-				let angularMomentum = Math.abs(cell.angularMomentum),
-					angleTravelled = 0;
+			function decelerateAngularVelocity() {
+				if (cell.angularMomentum > 0) {
+					cell.angularMomentum = cell.angularMomentum - angularMomentumStepSize;
+				} else {
+					cell.angularMomentum = cell.angularMomentum + angularMomentumStepSize;
+				}
+			}
 
-				for (let i = 0; angularMomentum > 0; i++) {
+			function accelerateAngularVelocity(clockwise) {
+				if (clockwise) {
+					cell.angularMomentum = cell.angularMomentum + angularMomentumStepSize;
+				} else {
+					cell.angularMomentum = cell.angularMomentum - angularMomentumStepSize;
+				}
+			}
+
+			function queryAngularDecelerationNeed(turnRemaining) {
+				let angularMomentum = Math.abs(cell.angularMomentum) + 0.5,
+					angleTravelled = 0,
+					decelerate;
+
+				while (angularMomentum > 0) {
 					angularMomentum = angularMomentum - 0.5;
 					angleTravelled = angleTravelled + angularMomentum;
 				}
 
-				return Math.abs(turnRemaining) <= angleTravelled;
+				decelerate = Math.abs(turnRemaining) <= Math.abs(angleTravelled) + 0.5;
+
+				return decelerate;
 			}
 
 			function applyAngularMomentum() {
