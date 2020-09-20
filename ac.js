@@ -88,7 +88,7 @@ function setup() {
 					force: 1,
 				}
 			},
-			forwardOverrideThreshold: 15,
+			forwardOverrideThreshold: 60,
 			chemodetectors: {
 				colour: '#008',
 				radius: 5,
@@ -263,11 +263,12 @@ function renderWorld() {
 
 		cell.meals = cell.meals.map(function(meal) {
 			meal = getMealDrawingInformation(meal, cell);
-			mainCC.beginPath();
-			mainCC.fillStyle = config.food.colour;
-			mainCC.arc(meal.location.x, meal.location.y, meal.radius * meal.scale, 0, Math.PI * 2, true);
-			mainCC.fill();
-
+			if (meal.scale > 0) {
+				mainCC.beginPath();
+				mainCC.fillStyle = config.food.colour;
+				mainCC.arc(meal.location.x, meal.location.y, meal.radius * meal.scale, 0, Math.PI * 2, true);
+				mainCC.fill();
+			}
 			return meal;
 		});
 	
@@ -699,7 +700,7 @@ function progressWorld() {
 						lungeTrigger = 0.00055,
 						cd0 = cell.chemodetectors[0],
 						cd1 = cell.chemodetectors[1],
-						movingAwayFromFood = cd0.currentIntensity < cd0.previousIntensity && cd1.currentIntensity < cd1.previousIntensity,
+						movingAwayFromFood = cd0.currentIntensity + cd1.currentIntensity < cd0.previousIntensity + cd1.previousIntensity,
 						stuck = cd0.currentIntensity === cd0.previousIntensity && cd1.currentIntensity === cd1.previousIntensity,
 						onTopOfFood = cd0.currentIntensity > lungeTrigger && cd1.currentIntensity > lungeTrigger,
 						foodClockwise = cd0.currentIntensity + diffTolerance < cd1.currentIntensity,
@@ -716,19 +717,17 @@ function progressWorld() {
 					} else if (onTopOfFood) {
 						cell.desiredSpeed = config.cell.speeds.speed3;
 					} else if (foodClockwise) {
-						// relativeTurn(2);
 						relativeTurn(clockwiseFactor * anglePerFactor);
-						cell.desiredSpeed = 0;
+						cell.desiredSpeed = config.cell.speeds.speed1;
 					} else if (foodcounterclockwise) {
-						// relativeTurn(-2);
 						relativeTurn(counterclockwiseFactor * anglePerFactor * -1);
-						cell.desiredSpeed = 0;
+						cell.desiredSpeed = config.cell.speeds.speed1;
 					} else {
 						cell.desiredSpeed = config.cell.speeds.speed2;
 					}
 				},
 				reverseDirection: function() {
-					let bearingTolerance = 5,
+					let bearingTolerance = 10,
 						cdMean = {
 							previousIntensity: cell.chemodetectors[0].previousIntensity + cell.chemodetectors[1].previousIntensity / 2,
 							currentIntensity: cell.chemodetectors[0].currentIntensity + cell.chemodetectors[1].currentIntensity / 2,
@@ -747,11 +746,13 @@ function progressWorld() {
 					} else {
 						if (bearingWithinTolerance(cell.orientationBearing, cell.knowledge.reverseTo, bearingTolerance)) {
 							cell.desiredSpeed = config.cell.speeds.speed3;
+							cell.knowledge.activity = 'moveForwards';
 						} else {
 							cell.desiredSpeed = 0;
 							if (turnedPastSmell) {
 								cell.knowledge.reverseTo = null;
 								cell.knowledge.inhibitReverseTill = worldTime + config.cell.forwardOverrideThreshold;
+								cell.desiredOrientationBearing = cell.orientationBearing;
 								cell.knowledge.activity = 'moveForwards';
 							}
 						}
@@ -764,11 +765,21 @@ function progressWorld() {
 				},
 			};
 
+			function rememberEatingIfIDid() {
+				if (cell.iGotFood > 0) {
+					cell.iGotFood = 0;
+					cell.chemodetectors[0].previousIntensity = 0;
+					cell.chemodetectors[1].previousIntensity = 0;
+					cell.timeOfLastMeal = worldTime;
+				}
+			}
+
 			function relativeTurn(amount) {
 				cell.knowledge.lastTurn = (amount + 360) % 360;
 				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
 			}
 
+			rememberEatingIfIDid();
 			if (config.cell.freewill) {
 				activities[cell.knowledge.activity]();
 			}
