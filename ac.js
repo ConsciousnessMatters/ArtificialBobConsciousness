@@ -59,7 +59,7 @@ function setup() {
 			locomotion: true,
 			smell: true,
 			freewill: true, // Program behaviour changes if conscious output (self determination) is switched to false
-			colour: 'rgba(204, 0, 204, 0.75)',
+			colour: 'rgba(204, 0, 204, 0.66)',
 			radius: 50,
 			mass: 5,
 			speeds: {
@@ -98,6 +98,9 @@ function setup() {
 			colour: '#0c0',
 			radius: 10,
 			iSLScalingFactor: 1,
+		},
+		meal: {
+			swallowTime: 240,
 		},
 		smellIntensityCircles: {
 			visibilityFactor: 10,
@@ -216,6 +219,7 @@ function createCell() {
 			reverseTo: null,
 			inhibitReverseTill: 0,
 		},
+		meals: [],
 	});
 
 	function getNewCellLocationX() {
@@ -245,11 +249,6 @@ function renderWorld() {
 
 		state.smellIntensityCircles.forEach(function(smellIntensityCircle) {
 			state.food.forEach(function(food) {
-				foodCC.beginPath();
-				foodCC.fillStyle = config.food.color;
-				foodCC.globalAlpha = smellIntensityCircle.intensityDelta * config.smellIntensityCircles.visibilityFactor;
-				foodCC.arc(food.location.x, food.location.y, smellIntensityCircle.radius, 0, Math.PI * 2, true);
-				foodCC.fill();
 			});
 			foodCC.globalAlpha = 1;
 		});
@@ -262,11 +261,23 @@ function renderWorld() {
 	state.cells.forEach(function(cell) {
 		let chemodetectorLocation;
 
+		cell.meals = cell.meals.map(function(meal) {
+			meal = getMealDrawingInformation(meal, cell);
+			mainCC.beginPath();
+			mainCC.fillStyle = config.food.colour;
+			mainCC.arc(meal.location.x, meal.location.y, meal.radius * meal.scale, 0, Math.PI * 2, true);
+			mainCC.fill();
+
+			return meal;
+		});
+	
+		// mainCC.globalCompositeOperation = "screen";
 		mainCC.beginPath();
 		mainCC.fillStyle = config.cell.colour;
 		mainCC.arc(cell.location.x, cell.location.y, config.cell.radius, 0, Math.PI * 2, true);
 		mainCC.fill();
 
+		// mainCC.globalCompositeOperation = "source-over";
 		cell.chemodetectors.forEach(function(chemodetector) {
 			chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (chemodetector.bearing + cell.orientationBearing + 360) % 360);
 			mainCC.beginPath();
@@ -275,7 +286,42 @@ function renderWorld() {
 			mainCC.fill();
 		});
 	});
+
+	function getMealDrawingInformation(meal, cell) {
+		let max = config.cell.radius + config.food.radius;
+		let min = 0;
+		let timeSinceEaten = worldTime - meal.eatenAt;
+		let swallowProgress = Math.min(timeSinceEaten / config.meal.swallowTime, 1);
+
+		meal.radius = config.food.radius;
+		meal.radialOffset = getMealDistanceFromCentre();
+		meal.location = getMealLocation();
+		meal.scale = getMealScalingFactor();
+
+		function getMealDistanceFromCentre() {
+			return max - (min + (max * swallowProgress));
+		}
+
+		function getMealLocation() {
+			return getPointRotatedFromRadius(cell.location.x, cell.location.y, meal.radialOffset, meal.bearing + cell.orientationBearing);
+		}
+
+		function getMealScalingFactor() {
+			return Math.min((1 - swallowProgress) * 2, 1);
+		}
+
+		return meal;
+	}
 }
+
+
+function getPointRotatedFromRadius(ox, oy, r, bearing) {
+	return {
+		x: Math.sin(degreesToRadians(bearing)) * r + ox,
+		y: Math.cos(degreesToRadians(bearing)) * r + oy,
+	};
+}
+
 
 function progressWorld() {
 	state.cells = state.cells.map(function(cell) {
@@ -543,7 +589,14 @@ function progressWorld() {
 		});
 
 		foodOfCollisioniness.forEach(function(food) {
+			let bearing = getBearingFromXY(food.location.x - cell.location.x, food.location.y - cell.location.y);
+
 			collisionEntityIds.push(food.entityId);
+			cell.meals.push({
+				bearing: (bearing - cell.orientationBearing + 360) % 360,
+				entityId: food.entityId,
+				eatenAt: worldTime,
+			});
 		});
 
 		state.food = state.food.filter(function(food) {
