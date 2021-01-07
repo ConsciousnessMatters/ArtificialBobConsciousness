@@ -5,7 +5,8 @@ let mainCC,
 	state,
 	config, 
 	entityId = 1,
-	worldTime = 0;
+	worldTime = 0,
+	scaleFactor = window.devicePixelRatio || 1;
 
 function getEntityId() {
 	return entityId++;
@@ -49,18 +50,18 @@ function setup() {
 			sizeY: null,
 		},
 		food: [],
-		cells: [],
+		creatures: [],
 		smellIntensityCircles: [],
 		renderFoodCanvas: true,
 		renderSmellCircles: true,
 	};
 	config = {
-		cell: {
+		creature: {
 			locomotion: true,
 			smell: true,
 			freewill: true, // Program behaviour changes if conscious output (self determination) is switched to false
 			colour: 'rgba(204, 0, 204, 0.66)',
-			radius: 50,
+			radius: 50 * scaleFactor,
 			mass: 5,
 			speeds: {
 				speed0: {
@@ -69,50 +70,50 @@ function setup() {
 				},
 				speed1: {
 					timeThreshhold: 0,
-					speed: 0.25,
-					force: 0.02,
+					speed: 0.25 * scaleFactor,
+					force: 0.02 * scaleFactor,
 				},
 				speed2: {
 					timeThreshhold: 100,
-					speed: 1,
-					force: 0.08,
+					speed: 1 * scaleFactor,
+					force: 0.08 * scaleFactor,
 				},
 				speed3: {
 					timeThreshhold: 300,
-					speed: 3,
-					force: 0.32,
+					speed: 3 * scaleFactor,
+					force: 0.32 * scaleFactor,
 				},
 				speedSniff: {
 					timeThreshhold: 3,
-					speed: 24,
-					force: 1,
+					speed: 24 * scaleFactor,
+					force: 1 * scaleFactor,
 				}
 			},
 			forwardOverrideThreshold: 60,
-			chemodetectors: {
+			chemoreceptors: {
 				colour: '#008',
-				radius: 5,
+				radius: 5 * scaleFactor,
 			},
 		},
 		food: {
 			colour: '#0c0',
-			radius: 10,
+			radius: 10 * scaleFactor,
 			iSLScalingFactor: 1,
 		},
 		meal: {
 			swallowTime: 240,
 		},
 		smellIntensityCircles: {
-			visibilityFactor: 10,
-			stepSize: 10,
-			limitDistance: 0,
+			visibilityFactor: 10 * scaleFactor,
+			stepSize: 10 * scaleFactor,
+			limitDistance: 0 * scaleFactor,
 		},
 	};
 
-	mainCC.canvas.width = mainCC.canvas.scrollWidth;
-	mainCC.canvas.height = mainCC.canvas.scrollHeight;
-	foodCC.canvas.width = mainCC.canvas.scrollWidth;
-	foodCC.canvas.height = mainCC.canvas.scrollHeight;
+	mainCC.canvas.width = mainCC.canvas.scrollWidth * scaleFactor;
+	mainCC.canvas.height = mainCC.canvas.scrollHeight * scaleFactor;
+	foodCC.canvas.width = mainCC.canvas.scrollWidth * scaleFactor;
+	foodCC.canvas.height = mainCC.canvas.scrollHeight * scaleFactor;
 
 	calculateSmellCircles();
 
@@ -168,19 +169,19 @@ function createFood() {
 	}
 }
 
-function createCells(quantity) {
+function createCreatures(quantity) {
 	while (quantity > 0) {
-		createCell();
+		createCreature();
 		quantity--;
 	}
 }
 
-function createCell() {
-	state.cells.push({
+function createCreature() {
+	state.creatures.push({
 		entityId: getEntityId(),
 		location: {
-			x: getNewCellLocationX(),
-			y: getNewCellLocationY(),
+			x: getNewCreatureLocationX(),
+			y: getNewCreatureLocationY(),
 		},
 		desiredSpeed: {
 			timeThreshhold: 0,
@@ -191,23 +192,23 @@ function createCell() {
 			x: 0,
 			y: 0,
 		},
-		desiredOrientationBearing: getNewCellDirection(),
-		orientationBearing: 0,
+		desiredbearing: getNewCreatureDirection(),
+		bearing: 0,
 		angularMomentum: 0,
 		timeOfLastMeal: 0,
 		iGotFood: 0,
-		chemodetectors: [
+		chemoreceptors: [
 			{
 				currentIntensity: 0,
 				previousIntensity: 0,
 				bearing: -45,
-				offset: config.cell.radius,
+				offset: config.creature.radius,
 			},
 			{
 				currentIntensity: 0,
 				previousIntensity: 0,
 				bearing: 45,
-				offset: config.cell.radius,
+				offset: config.creature.radius,
 			},
 		],
 		knowledge: {
@@ -222,15 +223,15 @@ function createCell() {
 		meals: [],
 	});
 
-	function getNewCellLocationX() {
-		return Math.random() * (mainCC.canvas.width - config.cell.radius * 2) + config.cell.radius;
+	function getNewCreatureLocationX() {
+		return Math.random() * (mainCC.canvas.width - config.creature.radius * 2) + config.creature.radius;
 	}
 
-	function getNewCellLocationY() {
-		return Math.random() * (mainCC.canvas.height - config.cell.radius * 2) + config.cell.radius;
+	function getNewCreatureLocationY() {
+		return Math.random() * (mainCC.canvas.height - config.creature.radius * 2) + config.creature.radius;
 	}
 
-	function getNewCellDirection() {
+	function getNewCreatureDirection() {
 		return Math.random() * 360;
 	}
 }
@@ -258,11 +259,11 @@ function renderWorld() {
 
 	mainCC.drawImage(foodCC.canvas, 0, 0);
 
-	state.cells.forEach(function(cell) {
-		let chemodetectorLocation;
+	state.creatures.forEach(function(creature) {
+		let chemoreceptorLocation;
 
-		cell.meals = cell.meals.map(function(meal) {
-			meal = getMealDrawingInformation(meal, cell);
+		creature.meals = creature.meals.map(function(meal) {
+			meal = getMealDrawingInformation(meal, creature);
 			if (meal.scale > 0) {
 				mainCC.beginPath();
 				mainCC.fillStyle = config.food.colour;
@@ -274,22 +275,22 @@ function renderWorld() {
 	
 		// mainCC.globalCompositeOperation = "screen";
 		mainCC.beginPath();
-		mainCC.fillStyle = config.cell.colour;
-		mainCC.arc(cell.location.x, cell.location.y, config.cell.radius, 0, Math.PI * 2, true);
+		mainCC.fillStyle = config.creature.colour;
+		mainCC.arc(creature.location.x, creature.location.y, config.creature.radius, 0, Math.PI * 2, true);
 		mainCC.fill();
 
 		// mainCC.globalCompositeOperation = "source-over";
-		cell.chemodetectors.forEach(function(chemodetector) {
-			chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (chemodetector.bearing + cell.orientationBearing + 360) % 360);
+		creature.chemoreceptors.forEach(function(chemoreceptor) {
+			chemoreceptorLocation = getPointRotatedFromRadius(creature.location.x, creature.location.y, chemoreceptor.offset, (chemoreceptor.bearing + creature.bearing + 360) % 360);
 			mainCC.beginPath();
-			mainCC.fillStyle = config.cell.chemodetectors.colour;
-			mainCC.arc(chemodetectorLocation.x, chemodetectorLocation.y, config.cell.chemodetectors.radius, 0, Math.PI * 2, true);
+			mainCC.fillStyle = config.creature.chemoreceptors.colour;
+			mainCC.arc(chemoreceptorLocation.x, chemoreceptorLocation.y, config.creature.chemoreceptors.radius, 0, Math.PI * 2, true);
 			mainCC.fill();
 		});
 	});
 
-	function getMealDrawingInformation(meal, cell) {
-		let max = config.cell.radius + config.food.radius;
+	function getMealDrawingInformation(meal, creature) {
+		let max = config.creature.radius + config.food.radius;
 		let min = 0;
 		let timeSinceEaten = worldTime - meal.eatenAt;
 		let swallowProgress = Math.min(timeSinceEaten / config.meal.swallowTime, 1);
@@ -304,7 +305,7 @@ function renderWorld() {
 		}
 
 		function getMealLocation() {
-			return getPointRotatedFromRadius(cell.location.x, cell.location.y, meal.radialOffset, meal.bearing + cell.orientationBearing);
+			return getPointRotatedFromRadius(creature.location.x, creature.location.y, meal.radialOffset, meal.bearing + creature.bearing);
 		}
 
 		function getMealScalingFactor() {
@@ -325,32 +326,32 @@ function getPointRotatedFromRadius(ox, oy, r, bearing) {
 
 
 function progressWorld() {
-	state.cells = state.cells.map(function(cell) {
-		cell = moveCell(cell);
-		cell = collisionDetection(cell);
-		cell = calculateSmellAtCell(cell);
-		cell = cellFunctions(cell);
+	state.creatures = state.creatures.map(function(creature) {
+		creature = moveCreature(creature);
+		creature = collisionDetection(creature);
+		creature = calculateSmellAtCreature(creature);
+		creature = creatureFunctions(creature);
 
-		return cell;
+		return creature;
 	});
 
-	function moveCell(cell) {
+	function moveCreature(creature) {
 		let motiveForce,
 			acceleration;
 
-		turnCell();
-		cell.actualSpeed = getActualSpeed();
+		turnCreature();
+		creature.actualSpeed = getActualSpeed();
 		motiveForce = getMotiveForce();
-		acceleration = getAcceleration(motiveForce, config.cell.mass);
+		acceleration = getAcceleration(motiveForce, config.creature.mass);
 
-		if (config.cell.locomotion) {
-			applyVelocityChange(acceleration, cell.desiredOrientationBearing);
+		if (config.creature.locomotion) {
+			applyVelocityChange(acceleration, creature.desiredbearing);
 		}
 		applySubstrateVelocityResistance();
 		applyVelocitiesToLocations();
 		preventOverflow();
 
-		function turnCell() {
+		function turnCreature() {
 			let useClockwiseSolution,
 				clockwiseSolution,
 				counterclockwiseSolution,
@@ -362,11 +363,11 @@ function progressWorld() {
 				easeOff = 1,
 				brake = 2;
 
-			if (cell.orientationBearing === cell.desiredOrientationBearing) {
+			if (creature.bearing === creature.desiredbearing) {
 				return;
 			}
 
-			let previousAngularMomentum = cell.angularMomentum;
+			let previousAngularMomentum = creature.angularMomentum;
 
 			clockwiseSolution = getTurningSolution(clockwise);
 			counterclockwiseSolution = getTurningSolution(counterclockwise);
@@ -383,7 +384,7 @@ function progressWorld() {
 			function turnProcessing(turnSolution) {
 				let clockwise = Math.abs(turnSolution) === turnSolution,
 					angularDeceleratioNeed = queryAngularDecelerationNeed(turnSolution),
-					angularAccelerationNeed = queryAngularAccelerationNeed(cell.angularMomentum);
+					angularAccelerationNeed = queryAngularAccelerationNeed(creature.angularMomentum);
 
 				if (angularDeceleratioNeed === brake) {
 					decelerateAngularVelocity();
@@ -395,10 +396,10 @@ function progressWorld() {
 			}
 
 			function decelerateAngularVelocity() {
-				if (cell.angularMomentum > 0) {
-					cell.angularMomentum = cell.angularMomentum - angularMomentumStepSize;
+				if (creature.angularMomentum > 0) {
+					creature.angularMomentum = creature.angularMomentum - angularMomentumStepSize;
 				} else {
-					cell.angularMomentum = cell.angularMomentum + angularMomentumStepSize;
+					creature.angularMomentum = creature.angularMomentum + angularMomentumStepSize;
 				}
 			}
 
@@ -408,9 +409,9 @@ function progressWorld() {
 
 			function accelerateAngularVelocity(clockwise) {
 				if (clockwise) {
-					cell.angularMomentum = cell.angularMomentum + angularMomentumStepSize;
+					creature.angularMomentum = creature.angularMomentum + angularMomentumStepSize;
 				} else {
-					cell.angularMomentum = cell.angularMomentum - angularMomentumStepSize;
+					creature.angularMomentum = creature.angularMomentum - angularMomentumStepSize;
 				}
 			}
 
@@ -419,7 +420,7 @@ function progressWorld() {
 			}
 
 			function queryAngularDecelerationNeed(turnRemaining) {
-				let angularMomentum = Math.abs(cell.angularMomentum),
+				let angularMomentum = Math.abs(creature.angularMomentum),
 					nextAngularMomentumCoasting = angularMomentum,
 					nextAngularMomentumAccelerating = angularMomentum < maxAngularMomentum ? angularMomentum + angularMomentumStepSize : angularMomentum,
 					angleTravelledBrakingNow = calculateBrakingAngle(turnRemaining, angularMomentum),
@@ -449,11 +450,11 @@ function progressWorld() {
 			}
 
 			function applyAngularMomentum() {
-				if (bearingWithinTolerance(cell.desiredOrientationBearing, cell.orientationBearing, 1) && cell.angularMomentum <= 0.5) {
-					cell.orientationBearing = cell.desiredOrientationBearing;
-					cell.angularMomentum = 0;
+				if (bearingWithinTolerance(creature.desiredbearing, creature.bearing, 1) && creature.angularMomentum <= 0.5) {
+					creature.bearing = creature.desiredbearing;
+					creature.angularMomentum = 0;
 				}
-				cell.orientationBearing = (cell.orientationBearing + cell.angularMomentum + 360) % 360;
+				creature.bearing = (creature.bearing + creature.angularMomentum + 360) % 360;
 			}
 
 			function bearingWithinTolerance(a, b, tolerance) {
@@ -470,28 +471,28 @@ function progressWorld() {
 
 			function getTurningSolution(clockwise = true) {
 				if (clockwise) {
-					if (cell.desiredOrientationBearing < cell.orientationBearing) {
-						return (cell.desiredOrientationBearing + 360) - cell.orientationBearing;
+					if (creature.desiredbearing < creature.bearing) {
+						return (creature.desiredbearing + 360) - creature.bearing;
 					} else {
-						return cell.desiredOrientationBearing - cell.orientationBearing;
+						return creature.desiredbearing - creature.bearing;
 					}
 				} else {
-					if (cell.desiredOrientationBearing > cell.orientationBearing) {
-						return cell.desiredOrientationBearing - (cell.orientationBearing + 360);
+					if (creature.desiredbearing > creature.bearing) {
+						return creature.desiredbearing - (creature.bearing + 360);
 					} else {
-						return cell.desiredOrientationBearing - cell.orientationBearing;
+						return creature.desiredbearing - creature.bearing;
 					}
 				}
 			}
 
 			function relativeTurn(amount) {
-				cell.knowledge.lastTurn = (amount + 360) % 360;
-				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
+				creature.knowledge.lastTurn = (amount + 360) % 360;
+				creature.desiredbearing = (creature.desiredbearing + amount) % 360;
 			}
 		}
 
 		function getActualSpeed() {
-			return getSpeedFromXY(cell.velocity.x, cell.velocity.y);
+			return getSpeedFromXY(creature.velocity.x, creature.velocity.y);
 		}
 
 		function getSpeedFromXY(x, y) {
@@ -499,8 +500,8 @@ function progressWorld() {
 		}
 
 		function getMotiveForce() {
-			if (cell.desiredSpeed.speed > cell.actualSpeed) {
-				return cell.desiredSpeed.force;
+			if (creature.desiredSpeed.speed > creature.actualSpeed) {
+				return creature.desiredSpeed.force;
 			} else {
 				return 0;
 			}
@@ -513,18 +514,18 @@ function progressWorld() {
 		function applyVelocityChange(accelerationForFrame, bearing) {
 			let vectorComponents = getPointRotatedFromRadius(0, 0, accelerationForFrame, bearing);
 
-			cell.velocity.x = cell.velocity.x + vectorComponents.x;
-			cell.velocity.y = cell.velocity.y + vectorComponents.y;
+			creature.velocity.x = creature.velocity.x + vectorComponents.x;
+			creature.velocity.y = creature.velocity.y + vectorComponents.y;
 		}
 
 		function applySubstrateVelocityResistance() {
 			let speed = getActualSpeed(),
-				bearing = getBearingFromXY(cell.velocity.x, cell.velocity.y),
+				bearing = getBearingFromXY(creature.velocity.x, creature.velocity.y),
 				counterBearing = (bearing + 180) % 360,
 				resistanceForce;
 
 			resistanceForce = getResistanceDeceleration(speed);
-			acceleration = getAcceleration(resistanceForce, config.cell.mass);
+			acceleration = getAcceleration(resistanceForce, config.creature.mass);
 			applyVelocityChange(acceleration, counterBearing);
 
 			function getResistanceDeceleration(speed) {
@@ -533,68 +534,68 @@ function progressWorld() {
 		}
 
 		function applyVelocitiesToLocations() {
-			cell.location.x = cell.location.x + cell.velocity.x;
-			cell.location.y = cell.location.y + cell.velocity.y;
+			creature.location.x = creature.location.x + creature.velocity.x;
+			creature.location.y = creature.location.y + creature.velocity.y;
 		}
 
 		function preventOverflow() {
-			if (cell.location.x > mainCC.canvas.width - config.cell.radius) {
-				cell.location.x = mainCC.canvas.width - config.cell.radius;
-				if (cell.velocity.x > 0) {
-					cell.velocity.x = 0;
+			if (creature.location.x > mainCC.canvas.width - config.creature.radius) {
+				creature.location.x = mainCC.canvas.width - config.creature.radius;
+				if (creature.velocity.x > 0) {
+					creature.velocity.x = 0;
 				}
-			} else if (cell.location.x < config.cell.radius) {
-				cell.location.x = config.cell.radius;
-				if (cell.velocity.x < 0) {
-					cell.velocity.x = 0;
+			} else if (creature.location.x < config.creature.radius) {
+				creature.location.x = config.creature.radius;
+				if (creature.velocity.x < 0) {
+					creature.velocity.x = 0;
 				}
 			}
 
-			if (cell.location.y > mainCC.canvas.height - config.cell.radius) {
-				cell.location.y = mainCC.canvas.height - config.cell.radius;
-				if (cell.velocity.y > 0) {
-					cell.velocity.y = 0;
+			if (creature.location.y > mainCC.canvas.height - config.creature.radius) {
+				creature.location.y = mainCC.canvas.height - config.creature.radius;
+				if (creature.velocity.y > 0) {
+					creature.velocity.y = 0;
 				}
-			} else if (cell.location.y < config.cell.radius) {
-				cell.location.y = config.cell.radius;
-				if (cell.velocity.y < 0) {
-					cell.velocity.y = 0;
+			} else if (creature.location.y < config.creature.radius) {
+				creature.location.y = config.creature.radius;
+				if (creature.velocity.y < 0) {
+					creature.velocity.y = 0;
 				}
 			}
 		}
 
-		return cell;
+		return creature;
 	}
 
-	function collisionDetection(cell) {
+	function collisionDetection(creature) {
 		let foodOfInterest, 
 			foodOfCollisioniness, 
 			collisionDistance, 
 			collisionEntityIds = [];
 
-		collisionDistance = config.cell.radius + config.food.radius;
+		collisionDistance = config.creature.radius + config.food.radius;
 
 		foodOfInterest = state.food.filter(function(food) {
-			let distanceX = Math.abs(food.location.x - cell.location.x),
-				distanceY = Math.abs(food.location.y - cell.location.y);
+			let distanceX = Math.abs(food.location.x - creature.location.x),
+				distanceY = Math.abs(food.location.y - creature.location.y);
 
 			return distanceX <= collisionDistance && distanceY <= collisionDistance;
 		});
 
 		foodOfCollisioniness = foodOfInterest.filter(function(food) {
-			let distanceX = Math.abs(food.location.x - cell.location.x),
-				distanceY = Math.abs(food.location.y - cell.location.y),
+			let distanceX = Math.abs(food.location.x - creature.location.x),
+				distanceY = Math.abs(food.location.y - creature.location.y),
 				distanceH = Math.sqrt(Math.pow(distanceX, 2) +  Math.pow(distanceY, 2));
 
 			return distanceH <= collisionDistance;
 		});
 
 		foodOfCollisioniness.forEach(function(food) {
-			let bearing = getBearingFromXY(food.location.x - cell.location.x, food.location.y - cell.location.y);
+			let bearing = getBearingFromXY(food.location.x - creature.location.x, food.location.y - creature.location.y);
 
 			collisionEntityIds.push(food.entityId);
-			cell.meals.push({
-				bearing: (bearing - cell.orientationBearing + 360) % 360,
+			creature.meals.push({
+				bearing: (bearing - creature.bearing + 360) % 360,
 				entityId: food.entityId,
 				eatenAt: worldTime,
 			});
@@ -609,37 +610,31 @@ function progressWorld() {
 		if (foodOfCollisioniness.length > 0) {
 			state.renderFoodCanvas = true;
 		}
-		cell.iGotFood = foodOfCollisioniness.length;
-		cell.counsciousnessAchieved = config.cell.smell;
-		cell.knowledge.whenILastAte = worldTime - cell.timeOfLastMeal;
+		creature.iGotFood = foodOfCollisioniness.length;
+		creature.counsciousnessAchieved = config.creature.smell;
+		creature.knowledge.whenILastAte = worldTime - creature.timeOfLastMeal;
 
-		return cell;
+		return creature;
 	}
 
-	function calculateSmellAtCell(cell) {
-		cell.chemodetectors = cell.chemodetectors.map(function(chemodetector) {
+	function calculateSmellAtCreature(creature) {
+		creature.chemoreceptors = creature.chemoreceptors.map(function(chemoreceptor) {
 			let foodDistances = [],
 				foodInverseSquares = [],
-				chemodetectorLocation = getPointRotatedFromRadius(cell.location.x, cell.location.y, chemodetector.offset, (cell.orientationBearing + chemodetector.bearing + 360) % 360);
+				chemoreceptorLocation = getPointRotatedFromRadius(creature.location.x, creature.location.y, chemoreceptor.offset, (creature.bearing + chemoreceptor.bearing + 360) % 360);
 
 			state.food.forEach(function(food) {
-				let distance = distanceFromPointToPoint(food.location.x, food.location.y, chemodetectorLocation.x, chemodetectorLocation.y);
+				let distance = distanceFromPointToPoint(food.location.x, food.location.y, chemoreceptorLocation.x, chemoreceptorLocation.y);
 
 				foodDistances.push(distance);
 			});
 
-			chemodetector.previousIntensity = chemodetector.currentIntensity;
-
-			// console.debug(`Current Smell Intensity: ${cell.smell.currentIntensity}`);
-
-			// // I don't know why the following in playing up:
-			// let inverseSqaureReducer = (acculmulator, distance) => acculmulator + Math.sqrt(1 / distance);
-			// cell.smell.currentIntensity = foodDistances.reduce(inverseSqaureReducer);
+			chemoreceptor.previousIntensity = chemoreceptor.currentIntensity;
 
 			foodInverseSquares = foodDistances.map(distance => 1 / Math.pow(distance, 2));
-			chemodetector.currentIntensity = foodInverseSquares.reduce((acculmulator, inverseSquare) => acculmulator + inverseSquare, 0);
+			chemoreceptor.currentIntensity = foodInverseSquares.reduce((acculmulator, inverseSquare) => acculmulator + inverseSquare, 0);
 
-			return chemodetector;
+			return chemoreceptor;
 		});
 
 		function distanceFromPointToPoint(x1, y1, x2, y2) {
@@ -652,13 +647,13 @@ function progressWorld() {
 			return getHypotenuseFromXY(diffX, diffY);
 		}
 
-		return cell;
+		return creature;
 	}
 
-	function cellFunctions(cell) {
-		if (cell.counsciousnessAchieved === false) {
+	function creatureFunctions(creature) {
+		if (creature.counsciousnessAchieved === false) {
 			unconsciousMode();
-		} else if (cell.counsciousnessAchieved === true) {
+		} else if (creature.counsciousnessAchieved === true) {
 			consciousMode();
 		}
 
@@ -668,27 +663,27 @@ function progressWorld() {
 			setSpeedByTimeSinceFood();
 
 			function rememberEatingIfIDid() {
-				if (cell.iGotFood > 0) {
-					cell.iGotFood = 0;
-					cell.timeOfLastMeal = worldTime;
+				if (creature.iGotFood > 0) {
+					creature.iGotFood = 0;
+					creature.timeOfLastMeal = worldTime;
 				}
 			}
 
 			function setSpeedByTimeSinceFood() {
-				if (cell.knowledge.whenILastAte > config.cell.speeds.speed1.timeThreshhold) {
-					cell.desiredSpeed = config.cell.speeds.speed1;
+				if (creature.knowledge.whenILastAte > config.creature.speeds.speed1.timeThreshhold) {
+					creature.desiredSpeed = config.creature.speeds.speed1;
 				}
-				if (cell.knowledge.whenILastAte > config.cell.speeds.speed2.timeThreshhold) {
-					cell.desiredSpeed = config.cell.speeds.speed2;
+				if (creature.knowledge.whenILastAte > config.creature.speeds.speed2.timeThreshhold) {
+					creature.desiredSpeed = config.creature.speeds.speed2;
 				}
-				if (cell.knowledge.whenILastAte > config.cell.speeds.speed3.timeThreshhold) {
-					cell.desiredSpeed = config.cell.speeds.speed3;
+				if (creature.knowledge.whenILastAte > config.creature.speeds.speed3.timeThreshhold) {
+					creature.desiredSpeed = config.creature.speeds.speed3;
 				}
 			}
 
 			function maybeChangeDirectionRandomly() {
 				if (Math.random() > 0.999) {
-					cell.desiredOrientationBearing = Math.random() * 360;
+					creature.desiredbearing = Math.random() * 360;
 				}
 			}
 		}
@@ -698,8 +693,8 @@ function progressWorld() {
 				moveForwards: function() {
 					let diffTolerance = 0.00001,
 						lungeTrigger = 0.00055,
-						cd0 = cell.chemodetectors[0],
-						cd1 = cell.chemodetectors[1],
+						cd0 = creature.chemoreceptors[0],
+						cd1 = creature.chemoreceptors[1],
 						movingAwayFromFood = cd0.currentIntensity + cd1.currentIntensity < cd0.previousIntensity + cd1.previousIntensity,
 						stuck = cd0.currentIntensity === cd0.previousIntensity && cd1.currentIntensity === cd1.previousIntensity,
 						onTopOfFood = cd0.currentIntensity > lungeTrigger && cd1.currentIntensity > lungeTrigger,
@@ -710,78 +705,83 @@ function progressWorld() {
 					let counterclockwiseFactor = (cd0.currentIntensity / cd1.currentIntensity) - 1;
 					let anglePerFactor = 8;
 
-					if ((movingAwayFromFood || stuck) && cell.knowledge.inhibitReverseTill < worldTime) {
+					if ((movingAwayFromFood || stuck) && creature.knowledge.inhibitReverseTill < worldTime) {
 						if (Math.random() >= 0.95) {
-							cell.knowledge.activity = 'reverseDirection';
+							creature.knowledge.activity = 'reverseDirection';
 						}
 					} else if (onTopOfFood) {
-						cell.desiredSpeed = config.cell.speeds.speed3;
+						creature.desiredSpeed = config.creature.speeds.speed3;
 					} else if (foodClockwise) {
 						relativeTurn(clockwiseFactor * anglePerFactor);
-						cell.desiredSpeed = config.cell.speeds.speed1;
+						creature.desiredSpeed = config.creature.speeds.speed1;
 					} else if (foodcounterclockwise) {
 						relativeTurn(counterclockwiseFactor * anglePerFactor * -1);
-						cell.desiredSpeed = config.cell.speeds.speed1;
+						creature.desiredSpeed = config.creature.speeds.speed1;
 					} else {
-						cell.desiredSpeed = config.cell.speeds.speed2;
+						creature.desiredSpeed = config.creature.speeds.speed2;
 					}
 				},
 				reverseDirection: function() {
 					let bearingTolerance = 10,
 						cdMean = {
-							previousIntensity: cell.chemodetectors[0].previousIntensity + cell.chemodetectors[1].previousIntensity / 2,
-							currentIntensity: cell.chemodetectors[0].currentIntensity + cell.chemodetectors[1].currentIntensity / 2,
+							previousIntensity: creature.chemoreceptors[0].previousIntensity + creature.chemoreceptors[1].previousIntensity / 2,
+							currentIntensity: creature.chemoreceptors[0].currentIntensity + creature.chemoreceptors[1].currentIntensity / 2,
 						},
 						velocity = {
-							bearing: getBearingFromXY(cell.velocity.x, cell.velocity.y),
-							speed: getHypotenuseFromXY(cell.velocity.x, cell.velocity.y),
+							bearing: getBearingFromXY(creature.velocity.x, creature.velocity.y),
+							speed: getHypotenuseFromXY(creature.velocity.x, creature.velocity.y).toFixed(3),
 						},
-						notPresentlyTurning = cell.knowledge.reverseTo === null,
+						notPresentlyTurning = creature.knowledge.reverseTo === null,
 						turnedPastSmell = cdMean.currentIntensity < cdMean.previousIntensity;
 
 					if (notPresentlyTurning) {
-						cell.knowledge.reverseTo = (velocity.bearing + 180) % 360;
-						cell.desiredOrientationBearing = cell.knowledge.reverseTo;
-						cell.desiredSpeed = 0;
-					} else {
-						if (bearingWithinTolerance(cell.orientationBearing, cell.knowledge.reverseTo, bearingTolerance)) {
-							cell.desiredSpeed = config.cell.speeds.speed3;
-							cell.knowledge.activity = 'moveForwards';
+						if (velocity.speed > 0) {
+							creature.knowledge.reverseTo = (velocity.bearing + 180) % 360;
 						} else {
-							cell.desiredSpeed = 0;
+							creature.knowledge.reverseTo = (creature.bearing + 180) % 360;
+						}
+
+						creature.desiredbearing = creature.knowledge.reverseTo;
+						creature.desiredSpeed = 0;
+					} else {
+						if (bearingWithinTolerance(creature.bearing, creature.knowledge.reverseTo, bearingTolerance)) {
+							creature.desiredSpeed = config.creature.speeds.speed3;
+							creature.knowledge.activity = 'moveForwards';
+						} else {
+							creature.desiredSpeed = 0;
 							if (turnedPastSmell) {
-								cell.knowledge.reverseTo = null;
-								cell.knowledge.inhibitReverseTill = worldTime + config.cell.forwardOverrideThreshold;
-								cell.desiredOrientationBearing = cell.orientationBearing;
-								cell.knowledge.activity = 'moveForwards';
+								creature.knowledge.reverseTo = null;
+								creature.knowledge.inhibitReverseTill = worldTime + config.creature.forwardOverrideThreshold;
+								creature.desiredbearing = creature.bearing;
+								creature.knowledge.activity = 'moveForwards';
 							}
 						}
 
-						if (bearingWithinTolerance(velocity.bearing, cell.knowledge.reverseTo, bearingTolerance)) {
-							cell.knowledge.reverseTo = null;
-							cell.knowledge.activity = 'moveForwards';
+						if (bearingWithinTolerance(velocity.bearing, creature.knowledge.reverseTo, bearingTolerance)) {
+							creature.knowledge.reverseTo = null;
+							creature.knowledge.activity = 'moveForwards';
 						}
 					}
 				},
 			};
 
 			function rememberEatingIfIDid() {
-				if (cell.iGotFood > 0) {
-					cell.iGotFood = 0;
-					cell.chemodetectors[0].previousIntensity = 0;
-					cell.chemodetectors[1].previousIntensity = 0;
-					cell.timeOfLastMeal = worldTime;
+				if (creature.iGotFood > 0) {
+					creature.iGotFood = 0;
+					creature.chemoreceptors[0].previousIntensity = 0;
+					creature.chemoreceptors[1].previousIntensity = 0;
+					creature.timeOfLastMeal = worldTime;
 				}
 			}
 
 			function relativeTurn(amount) {
-				cell.knowledge.lastTurn = (amount + 360) % 360;
-				cell.desiredOrientationBearing = (cell.desiredOrientationBearing + amount) % 360;
+				creature.knowledge.lastTurn = (amount + 360) % 360;
+				creature.desiredbearing = (creature.desiredbearing + amount) % 360;
 			}
 
 			rememberEatingIfIDid();
-			if (config.cell.freewill) {
-				activities[cell.knowledge.activity]();
+			if (config.creature.freewill) {
+				activities[creature.knowledge.activity]();
 			}
 		}
 
@@ -797,7 +797,7 @@ function progressWorld() {
 			return difference <= tolerance;
 		}
 
-		return cell;
+		return creature;
 	}
 
 	worldTime++;
@@ -811,5 +811,5 @@ function animateWorld() {
 
 setup();
 createFoods(100);
-createCells(1);
+createCreatures(1);
 animateWorld();
